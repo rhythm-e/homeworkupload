@@ -66,19 +66,36 @@ BigInteger::BigInteger(int obj)
 }
 BigInteger::BigInteger(const string &obj)
 {
+    num.clear();
     len = obj.size();
-    sign = obj[0] != '-';
-    if(sign)
+    if(len == 2 && *obj.begin()=='"') 
     {
-        for (int i = 0; i < len; i++)
-            num.push_back(obj[len - i - 1] - '0');
+        sign = true;
+        len = 1;
+        num.push_back(0);
     }
     else
-   {
-        for(int i = 1; i < len; i++)
-            num.push_back(obj[len - i -1] - '0');
-        len--;
-   }
+    {
+        string s = obj;
+        if(*s.begin() == '"')
+        {   
+            s.erase(s.begin());
+            s.erase(s.end() - 1);
+        }
+        len = s.size();
+        sign = s[0] != '-';
+        if(sign)
+        {
+            for (int i = 0; i < len; i++)
+                num.push_back(s[len - i - 1] - '0');
+        }
+        else
+        {
+            for(int i = 1; i < len; i++)
+                num.push_back(s[len - i -1] - '0');
+            len--;
+        } 
+    }
 }
 BigInteger::BigInteger(const char* obj)
 {
@@ -364,6 +381,7 @@ BigInteger operator*(const BigInteger& r1, const BigInteger& r2)
 BigInteger operator/(const BigInteger& r1, const BigInteger& r2)
 {
     BigInteger r3;
+    BigInteger tmp(0);
     if(r2.num[0] == 0) exit(0);
     BigInteger t1 = r1.abs(), t2 = r2.abs();
     if(t1 < t2) {r3.len++;}
@@ -372,7 +390,6 @@ BigInteger operator/(const BigInteger& r1, const BigInteger& r2)
         r3.num.clear();
         deque<int>temp_put;
         auto Iter = t1.num.rbegin();
-        BigInteger tmp(0);
         while(Iter != t1.num.rend())
         {
             tmp = tmp * BigInteger(10) + BigInteger(*Iter);
@@ -398,7 +415,8 @@ BigInteger operator/(const BigInteger& r1, const BigInteger& r2)
         else
         {
             r3.sign = false;
-            r3 = r3 - BigInteger(1);
+            if(!tmp == 0) 
+                r3 = r3 - BigInteger(1);
         }
     }
     return r3;
@@ -408,7 +426,7 @@ BigInteger operator%(const BigInteger& r1, const BigInteger& r2)
 {return r1 - (r1 / r2)* r2;}
 
 BigInteger::operator bool()const
-{return num[len - 1] == 0;}
+{return num[0] != 0;}
 
 BigInteger::operator string()const
 {

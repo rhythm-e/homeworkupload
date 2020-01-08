@@ -78,12 +78,11 @@ class EvalVisitor: public Python3BaseVisitor {
     }
 
     antlrcpp::Any visitStmt(Python3Parser::StmtContext *ctx) override {
-        
         return visitChildren(ctx);
     }
 
     antlrcpp::Any visitSimple_stmt(Python3Parser::Simple_stmtContext *ctx) override {
-             return visitChildren(ctx);
+        return visitChildren(ctx);
     }
 
     antlrcpp::Any visitSmall_stmt(Python3Parser::Small_stmtContext *ctx) override {
@@ -93,18 +92,20 @@ class EvalVisitor: public Python3BaseVisitor {
     antlrcpp::Any visitExpr_stmt(Python3Parser::Expr_stmtContext *ctx) override {
         //std::cout<<"in_expr_stm"<<std::endl;
         int test_num = ctx -> testlist().size();
+        //std::cout<<"test_num "<<test_num<<std::endl;
         if(test_num == 1){
             //std::cout<<"just_print_value/test"<<std::endl;
             return visit(ctx -> testlist(0));
         }
         else
         {
-            std::vector<antlrcpp::Any> test_x = visit(ctx -> testlist(0));
+            std::vector<antlrcpp::Any> test_x = visit(ctx -> testlist(0)).as<std::vector<antlrcpp::Any>>();
             //std::cout<<"test_x.size "<<test_x.size()<<std::endl;
             if(test_x.size() == 1)
             {
                 int assign_num = ctx -> ASSIGN().size();
-                antlrcpp::Any tmp = visit(ctx -> testlist(test_num - 1) -> test(0));
+                //std::cout<<"= number "<<assign_num<<std::endl;
+                antlrcpp::Any tmp = visit(ctx -> testlist(test_num - 1)-> test(0));
                 if(assign_num == 0)
                 {
                     antlrcpp::Any left = visit(ctx -> testlist(0) -> test(0));
@@ -122,7 +123,7 @@ class EvalVisitor: public Python3BaseVisitor {
                     std::vector<std::map<std::string,antlrcpp::Any>>::reverse_iterator out;
                     for(out = scope.rbegin();out != scope.rend() ; ++out )
                     if((*out).count(s)){ /*std::cout<<"find"<<std::endl;*/(*out)[s] = answer; break;}
-                    if(out == scope.rend()) scope.back()[s] = answer;
+                    if(out == scope.rend()) {/*std::cout<<"not_find"<<std::endl;*/scope.back()[s] = answer;}
                     return answer;
                 }
                 else 
@@ -131,9 +132,10 @@ class EvalVisitor: public Python3BaseVisitor {
                     for(int i = assign_num - 1 ; i >= 0 ; --i)
                     {
                         std::string s = ctx -> testlist(i) -> test(0) -> or_test() -> and_test(0) -> not_test(0) -> comparison() -> arith_expr(0) -> term(0) -> factor(0) -> atom_expr() -> atom() -> NAME() -> toString();
+                        //std::cout<<s<<std::endl;
                         std::vector<std::map<std::string,antlrcpp::Any>>::reverse_iterator out;
                         for(out = scope.rbegin();out != scope.rend() ; ++out )
-                        if((*out).count(s)){ (*out)[s] = tmp; break;}
+                        if((*out).count(s)){/* std::cout<<"find"<<endl;*/(*out)[s] = tmp; break;}
                         if(out == scope.rend()) scope.back()[s] = tmp;
                     }
                     return tmp;
@@ -142,17 +144,26 @@ class EvalVisitor: public Python3BaseVisitor {
             else
             {
                 std::vector<antlrcpp::Any> list;
+                std::vector<antlrcpp::Any> tmplist = (visit(ctx -> testlist(test_num - 1))).as<std::vector<antlrcpp::Any>>();
+                int test_size = tmplist.size();
+                antlrcpp::Any tmp;
                 for(int i = 0; i < ctx -> testlist(0) -> test().size() ; ++i)
                 {
-                    antlrcpp::Any tmp = visit(ctx -> testlist(test_num - 1) -> test(i));
+                    if(test_size != 1)
+                        tmp = visit(ctx -> testlist(test_num - 1) -> test(i));
+                    else 
+                        tmp = visit(ctx -> testlist(test_num - 1) -> test(0));
                     list.push_back(tmp);
+                }
+                for(int i = 0; i < ctx -> testlist(0) -> test().size() ; ++i)
+                {
                     for(int j = test_num - 2 ; j >= 0 ; --j )
                     {
                         std::string s =  ctx -> testlist(j) -> test(i) -> or_test() -> and_test(0) -> not_test(0) -> comparison() -> arith_expr(0) -> term(0) -> factor(0) -> atom_expr() -> atom() -> NAME() -> toString();
                         std::vector<std::map<std::string,antlrcpp::Any>>::reverse_iterator out;
                         for(out = scope.rbegin();out != scope.rend() ; ++out )
-                        if((*out).count(s)){ (*out)[s] = tmp; break;}
-                        if(out == scope.rend()) scope.back()[s] = tmp;
+                        if((*out).count(s)){ (*out)[s] = list[i]; break;}
+                        if(out == scope.rend()) scope.back()[s] = list[i];
                     }
                 }
                 return list;
@@ -181,7 +192,7 @@ class EvalVisitor: public Python3BaseVisitor {
 
     antlrcpp::Any visitContinue_stmt(Python3Parser::Continue_stmtContext *ctx) override {
         has_continue = true;
-        return 0;
+        return 0;;
     }
 
     antlrcpp::Any visitReturn_stmt(Python3Parser::Return_stmtContext *ctx) override {
@@ -196,7 +207,7 @@ class EvalVisitor: public Python3BaseVisitor {
             //std::cout<<"has_return"<<std::endl;
             return_value.push_back(visit(ctx -> testlist()).as<std::vector<antlrcpp::Any>>());
         }
-        return 0;
+        return std::string("has_return");
     }
 
     antlrcpp::Any visitCompound_stmt(Python3Parser::Compound_stmtContext *ctx) override {
@@ -209,16 +220,30 @@ class EvalVisitor: public Python3BaseVisitor {
         scope.push_back(tmp);
         antlrcpp::Any whether_continue = visit(ctx -> test(0));
         if(to_continue(whether_continue))
+        {
+            //std::cout<<"if"<<std::endl;
             x = visit(ctx -> suite(0));
+            scope.pop_back();
+            return x;
+        }
         int else_i_num = ctx -> ELIF().size();
         for(int i = 1 ; i <= else_i_num ; i++)
         {
             whether_continue = visit(ctx -> test(i));
-            if(to_continue(whether_continue)) x = visit(ctx -> suite(i));
+            if(to_continue(whether_continue))
+            {
+                x = visit(ctx -> suite(i));
+                scope.pop_back();
+                return x;
+            }
         }
-        if(ctx -> ELSE()) x = visit(ctx -> suite(ctx -> suite().size()-1));
-        scope.pop_back();
-        return x;
+        if(ctx -> ELSE()) 
+        {
+            //std::cout<<"else"<<std::endl;
+            x = visit(ctx -> suite(ctx -> suite().size()-1));
+            scope.pop_back();
+            return x;
+        }
     }
 
     antlrcpp::Any visitWhile_stmt(Python3Parser::While_stmtContext *ctx) override {
@@ -231,9 +256,9 @@ class EvalVisitor: public Python3BaseVisitor {
         while(to_continue(whether_continue))
         {  
             x = visit(ctx ->suite());
-            whether_continue = visit(ctx -> test()); 
             if(has_break) break;
             if(has_continue) continue;
+            whether_continue = visit(ctx -> test()); 
             //std::cout<<"loop_time "<< time++ <<std::endl;
         }
         has_break = false;
@@ -257,6 +282,8 @@ class EvalVisitor: public Python3BaseVisitor {
             {    
                 //std::cout<<"int statement "<< i <<std::endl;
                 return_ctx = visit(ctx -> stmt(i));
+                //prints(return_ctx);
+                //std::cout<<std::endl;
                 if(has_break) break;
                 if(has_continue) continue;
                 if (has_return)
@@ -265,10 +292,11 @@ class EvalVisitor: public Python3BaseVisitor {
                     antlrcpp::Any x = return_value.back();
                     if(x.is<std::vector<antlrcpp::Any>>()) return_ctx = x.as<std::vector<antlrcpp::Any>>();
                     else  if(x.is<std::string>()) return_ctx = x.as<std::string>();
-                    has_return = false;
                     return_value.pop_back();
+                    break;
                 }
-            }            
+            }
+            has_return = false;            
         }
         return return_ctx;
     }
@@ -284,8 +312,24 @@ class EvalVisitor: public Python3BaseVisitor {
         if(test_num > 1)
         {
             for(int i = 0 ; i < test_num ; i++)
-                if(ctx -> and_test(i))
-                    return true;
+            {
+                antlrcpp::Any tmp = visit(ctx -> and_test(i));
+                if(tmp.is<BigInteger>())
+                    if(tmp.as<BigInteger>() != BigInteger(0))
+                        return true;
+                if(tmp.is<double>())
+                    if(tmp.as<double>() != 0.0)
+                        return true;
+                if(tmp.is<bool>()) if(tmp.as<bool>()) return true;
+                if(tmp.is<std::string>()) 
+                {
+                    std::string s = tmp.as<std::string>();
+                    if(*s.begin() = '"') 
+                        if(s.size() != 2)
+                            return true;
+                    else if(s.size()) return true;
+                }
+            }
             return false;
         }
         else
@@ -300,8 +344,22 @@ class EvalVisitor: public Python3BaseVisitor {
         {
             for(int i = 0 ; i < test_num ; i++)
             {
-                if(ctx -> not_test(i))
-                    return false;
+                antlrcpp::Any tmp = visit(ctx -> not_test(i));
+                if(tmp.is<BigInteger>())
+                    if(tmp.as<BigInteger>() == BigInteger(0))
+                        return false;
+                if(tmp.is<double>())
+                    if(tmp.as<double>() == 0.0)
+                        return false;
+                if(tmp.is<bool>()) if(!tmp.as<bool>()) return false;
+                if(tmp.is<std::string>()) 
+                {
+                    std::string s = tmp.as<std::string>();
+                    if(*s.begin() = '"') 
+                        if(s.size() == 2)
+                            return false;
+                    else if(!s.size()) return false;
+                }
             }
             return true;
         }
@@ -311,7 +369,22 @@ class EvalVisitor: public Python3BaseVisitor {
     antlrcpp::Any visitNot_test(Python3Parser::Not_testContext *ctx) override {
     //    std::cout<<"not_test"<<std::endl;
         if(ctx -> not_test())
-            return !visit(ctx -> not_test());
+        {
+            antlrcpp::Any tmp = visit(ctx -> not_test());
+            if(tmp.is<BigInteger>())
+                return !(tmp.as<BigInteger>() != BigInteger(0));
+            if(tmp.is<double>())
+                return !(tmp.as<double>() != 0.0);
+            if(tmp.is<bool>()) return !tmp.as<bool>();
+            if(tmp.is<std::string>()) 
+            {
+                std::string s = tmp.as<std::string>();
+                if(*s.begin() = '"') 
+                    return !(s.size() != 2);
+                else return !s.size();
+            }
+            else return !visit(ctx -> not_test());
+        }
         else
             return visit (ctx -> comparison());
     }
@@ -481,7 +554,7 @@ class EvalVisitor: public Python3BaseVisitor {
                     std::vector<reflect> parlist = par_cot[tmp1];
                     int type_num = par_cot[tmp1].size();
                     bool can_change_pos = false;
-                    int assign_num;
+                    int assign_num = 0;
                     if(tmp_trailor_size == type_num)
                     {
                         for(int i = 0 ; i < type_num ; i++)
@@ -495,13 +568,7 @@ class EvalVisitor: public Python3BaseVisitor {
                     {
                         //std::cout<<"in_func_can_change_pos"<<std::endl;
                         for(int i = 0 ; i < type_num ; i++)
-                            tmp[ctx -> trailer() -> arglist() -> argument(i) -> NAME() -> toString()] = v[i]; 
-                        for(int i = 0 ; i < type_num ; i++)
-                        {
-                            string pname = par_cot[tmp1][type_num - i -1].name;
-                            antlrcpp::Any pvalue = par_cot[tmp1][type_num - i - 1].value;  
-                            scope.back()[pname] = pvalue;
-                        }
+                            scope.back()[ctx -> trailer() -> arglist() -> argument(i) -> NAME() -> toString()] = v[i]; 
                     }
                     else
                     {
@@ -524,6 +591,11 @@ class EvalVisitor: public Python3BaseVisitor {
             }
             if(tmp1 == "print")
             {
+                if(!ctx -> trailer() -> arglist())
+                {
+                    std::cout<<std::endl;
+                    return 0;
+                }    
                 for(int i = 0  ; i < tmp_trailor_size ; i++)
                 {
                     //std::cout<<"in_print"<<std::endl;
@@ -564,10 +636,10 @@ class EvalVisitor: public Python3BaseVisitor {
                     return v[0].as<BigInteger>();}
                 else if(v[0].is<double>())
                     return BigInteger(v[0].as<double>());
-                else if(v[0].is<bool>()){
-                    //std::cout<<"in_int_bool"<<std::endl;
+                else if(v[0].is<bool>())
                     return int(v[0].as<bool>());
-                }
+                else if(v[0].is<std::string>())
+                    return BigInteger(v[0].as<std::string>());
             }
             else if(tmp1 == "float" && tmp_trailor_size == 1)
             {
@@ -656,8 +728,12 @@ class EvalVisitor: public Python3BaseVisitor {
         {
             //std::cout<<"in_NAME()"<<std::endl;
             std::string s = ctx -> NAME() -> toString();
+            //std::cout<<"ctx -> NAME() "<<s<<std::endl;
             if(search_map(scope , s))
+            {   
+                //std::cout<<"has_match_value"<<std::endl;
                 return map_value(scope , s);
+            }
             else return s;
         }
         else if(ctx -> FALSE())
@@ -675,7 +751,10 @@ class EvalVisitor: public Python3BaseVisitor {
         std::vector<antlrcpp::Any> list;
         int test_num = ctx -> test().size();
         for(int i = 0 ; i < test_num ; ++i)
-            list.push_back(visit(ctx -> test(i)));
+        {
+            antlrcpp::Any tmp = visit(ctx -> test(i));
+            list.push_back(tmp);
+        }
         return list;
     }
 

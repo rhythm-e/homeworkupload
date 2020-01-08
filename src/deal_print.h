@@ -25,6 +25,7 @@ void prints(antlrcpp::Any k)
         if(k.as<bool>())    cout<<"True";
         else                cout<<"False";
     }
+    else cout<<0;
 }
 
 #endif

@@ -13,21 +13,25 @@ antlrcpp::Any multiply(antlrcpp::Any left , antlrcpp::Any right )
         else
         {
             std::string s = right.as<std::string>();
+            std::string answer = s ;
             for(BigInteger i = left.as<BigInteger>() ; i > BigInteger(1) ; i = i - BigInteger(1))
-                s += s;
-            return s;
+                answer += s;
+            return answer;
         }
     }
     if(left.is<std::string>() && right.is<BigInteger>())
     {
+        //std::cout<<"in_mul"<<std::endl;
         if(right.as<BigInteger>() <= BigInteger(0))
             return std::string("");
         else
         {
             std::string s = left.as<std::string>();
+            std::string answer = s ;
             for(BigInteger i = right.as<BigInteger>() ; i > BigInteger(1) ; i = i - BigInteger(1))
-                s += s;
-            return s;
+                answer += s;
+            //std::cout<<answer<<std::endl;
+            return answer;
         }
         
     }
@@ -393,7 +397,7 @@ bool is_variable(const std::string s)
 
 bool to_continue(const antlrcpp::Any whether_continue)
 {
-    if(whether_continue.is<BigInteger>()) return bool(whether_continue.as<BigInteger>()); 
+    if(whether_continue.is<BigInteger>()) return bool(whether_continue.as<BigInteger>());
     else if(whether_continue.is<double>())return bool(whether_continue.as<double>());
     else if (whether_continue.is<bool>())return whether_continue.as<bool>();
     else if(whether_continue.is<std::string>())return bool(whether_continue.as<std::string>() > "");    
